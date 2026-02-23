@@ -1,137 +1,78 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TCC Hub (Online)</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div class="container">
-    <header class="top">
-      <h1>🧭 TCC Hub</h1>
-      <p>Biomas • Kanban • Decisões (colaboração online)</p>
+// app.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
-      <div class="row">
-        <span class="hint" id="status">Status: aguardando…</span>
-      </div>
-    </header>
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    <section class="card">
-      <h2>Login (Google)</h2>
-      <div class="row">
-        <button id="btnLogin">Entrar com Google</button>
-        <button class="danger" id="btnLogout">Sair</button>
-      </div>
-      <div class="hint" id="userInfo"></div>
-    </section>
+// 1) Seu config (o seu mesmo)
+const firebaseConfig = {
+  apiKey: "AIzaSyAz9dC1RvvFrJhmpai19_elwQvXD13blQ0",
+  authDomain: "tcc---hub.firebaseapp.com",
+  projectId: "tcc---hub",
+  storageBucket: "tcc---hub.firebasestorage.app",
+  messagingSenderId: "947203923355",
+  appId: "1:947203923355:web:cff1e0300bd673e8bed53e"
+};
 
-    <section class="card">
-      <h2>1) Ficha do Bioma</h2>
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-      <div class="row">
-        <div class="grow">
-          <label>Selecionar bioma</label>
-          <select id="biomeSelect"></select>
-        </div>
-        <div>
-          <button id="saveBiome">Salvar bioma</button>
-        </div>
-      </div>
+// 2) Ajuste estes IDs para bater com seu HTML
+const btnLogin = document.getElementById("btnLogin");   // ex: botão "Entrar com Google"
+const btnLogout = document.getElementById("btnLogout"); // ex: botão "Sair"
+const statusEl = document.getElementById("loginStatus"); // ex: texto "logado como..."
 
-      <div class="grid2">
-        <div>
-          <h3>Território</h3>
-          <label>Área / distribuição</label><input id="t_area" />
-          <label>Estados / países</label><input id="t_estados" />
-          <label>Clima</label><input id="t_clima" />
-          <label>Estações</label><input id="t_estacoes" />
-          <label>Regime hídrico</label><input id="t_hidrico" />
-        </div>
+const WORKSPACE_ID = "tccHub";
 
-        <div>
-          <h3>Terroir gastronômico</h3>
-          <label>Frutas nativas (vírgula)</label><input id="g_frutas" />
-          <label>Vegetais/raízes/sementes (vírgula)</label><input id="g_vegetais" />
-          <label>Proteínas típicas (vírgula)</label><input id="g_proteinas" />
-          <label>Técnicas tradicionais (vírgula)</label><input id="g_tecnicas" />
-          <label>Pratos emblemáticos (vírgula)</label><input id="g_pratos" />
-        </div>
-      </div>
+// 3) Lista de brigadas (dropdown)
+const BRIGADAS = ["Confeitaria", "Bebidas", "Quente", "Fria", "Serviço", "Pesquisa"];
 
-      <div class="grid2">
-        <div>
-          <h3>Cultura</h3>
-          <label>Música / ritmos</label><input id="c_musica" />
-          <label>Manifestações culturais</label><input id="c_manifestacoes" />
-        </div>
+async function ensureMemberProfile(user) {
+  // UID vira o ID do documento
+  const ref = doc(db, "workspaces", WORKSPACE_ID, "members", user.uid);
 
-        <div>
-          <h3>Imaginário</h3>
-          <label>Encantados citados (vírgula)</label><input id="encantados" />
-          <label>Notas do bioma</label><textarea id="notes"></textarea>
-        </div>
-      </div>
-    </section>
+  // Cria/atualiza sem apagar o que já existe (merge: true)
+  await setDoc(ref, {
+    uid: user.uid,
+    name: user.displayName || "",
+    email: user.email || "",
+    photoURL: user.photoURL || "",
+    brigada: "",        // depois o usuário escolhe no site
+    cargo: "",          // opcional
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
 
-    <section class="card">
-      <h2>2) Kanban (tarefas do grupo)</h2>
+btnLogin?.addEventListener("click", async () => {
+  const provider = new GoogleAuthProvider();
+  const result = await signInWithPopup(auth, provider);
+  await ensureMemberProfile(result.user);
+});
 
-      <div class="grid2">
-        <div>
-          <label>Tarefa</label>
-          <input id="task_title" placeholder="Ex: Pesquisar frutas do Cerrado" />
-        </div>
-        <div>
-          <label>Responsável</label>
-          <input id="task_owner" placeholder="Ex: Membro 3" />
-        </div>
-      </div>
+btnLogout?.addEventListener("click", async () => {
+  await signOut(auth);
+});
 
-      <div class="row">
-        <button id="addTask">Adicionar tarefa</button>
-        <span class="hint">Arraste cards entre colunas</span>
-      </div>
+onAuthStateChanged(auth, async (user) => {
+  if (!statusEl) return;
 
-      <div class="kanban">
-        <div class="col" data-col="todo">
-          <h3>A Fazer</h3><div class="drop">solte aqui</div><div class="list" id="todo"></div>
-        </div>
-        <div class="col" data-col="doing">
-          <h3>Fazendo</h3><div class="drop">solte aqui</div><div class="list" id="doing"></div>
-        </div>
-        <div class="col" data-col="review">
-          <h3>Revisão</h3><div class="drop">solte aqui</div><div class="list" id="review"></div>
-        </div>
-        <div class="col" data-col="done">
-          <h3>Pronto</h3><div class="drop">solte aqui</div><div class="list" id="done"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>3) Decisões (o que “tá valendo”)</h2>
-
-      <div class="grid2">
-        <div>
-          <label>Título</label>
-          <input id="dec_title" placeholder="Ex: Encantados finais por bioma" />
-        </div>
-        <div>
-          <label>Detalhes</label>
-          <input id="dec_detail" placeholder="O que foi decidido e por quê" />
-        </div>
-      </div>
-
-      <div class="row">
-        <button id="addDecision">Registrar decisão</button>
-      </div>
-
-      <div id="decList"></div>
-    </section>
-  </div>
-
- 
-  <script type="module" src="./app.js"></script>
-</body>
-</html>
+  if (user) {
+    statusEl.textContent = `Logado como: ${user.email}`;
+    await ensureMemberProfile(user); // garante que existe doc mesmo se recarregar
+  } else {
+    statusEl.textContent = "Não logado";
+  }
+});
