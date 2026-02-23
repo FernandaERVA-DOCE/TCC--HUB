@@ -1,228 +1,137 @@
-// ===== CONFIG FIREBASE =====
-const firebaseConfig = {
-  apiKey: "AIzaSyAz9dC1RvvFrJhmpai19_elwQvXD13blQ0",
-  authDomain: "tcc---hub.firebaseapp.com",
-  projectId: "tcc---hub",
-  storageBucket: "tcc---hub.firebasestorage.app",
-  messagingSenderId: "947203923355",
-  appId: "1:947203923355:web:cff1e0300bd673e8bed53e"
-};
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TCC Hub (Online)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="top">
+      <h1>🧭 TCC Hub</h1>
+      <p>Biomas • Kanban • Decisões (colaboração online)</p>
 
-// Inicializa Firebase
-firebase.initializeApp(firebaseConfig);
+      <div class="row">
+        <span class="hint" id="status">Status: aguardando…</span>
+      </div>
+    </header>
 
-const auth = firebase.auth();
-const db = firebase.firestore();
+    <section class="card">
+      <h2>Login (Google)</h2>
+      <div class="row">
+        <button id="btnLogin">Entrar com Google</button>
+        <button class="danger" id="btnLogout">Sair</button>
+      </div>
+      <div class="hint" id="userInfo"></div>
+    </section>
 
-const provider = new firebase.auth.GoogleAuthProvider();
+    <section class="card">
+      <h2>1) Ficha do Bioma</h2>
 
-// Documento único do grupo
-const DOC_PATH = "workspaces/tccHub";
+      <div class="row">
+        <div class="grow">
+          <label>Selecionar bioma</label>
+          <select id="biomeSelect"></select>
+        </div>
+        <div>
+          <button id="saveBiome">Salvar bioma</button>
+        </div>
+      </div>
 
-let data = null;
-let currentUser = null;
+      <div class="grid2">
+        <div>
+          <h3>Território</h3>
+          <label>Área / distribuição</label><input id="t_area" />
+          <label>Estados / países</label><input id="t_estados" />
+          <label>Clima</label><input id="t_clima" />
+          <label>Estações</label><input id="t_estacoes" />
+          <label>Regime hídrico</label><input id="t_hidrico" />
+        </div>
 
-const BIOMES = [
-  "Amazônia",
-  "Cerrado",
-  "Caatinga",
-  "Mata Atlântica",
-  "Pampa",
-  "Pantanal"
-];
+        <div>
+          <h3>Terroir gastronômico</h3>
+          <label>Frutas nativas (vírgula)</label><input id="g_frutas" />
+          <label>Vegetais/raízes/sementes (vírgula)</label><input id="g_vegetais" />
+          <label>Proteínas típicas (vírgula)</label><input id="g_proteinas" />
+          <label>Técnicas tradicionais (vírgula)</label><input id="g_tecnicas" />
+          <label>Pratos emblemáticos (vírgula)</label><input id="g_pratos" />
+        </div>
+      </div>
 
-const defaultData = {
-  biomes: Object.fromEntries(
-    BIOMES.map(b => [b, {
-      territorio: { area:"", estados:"", clima:"", estacoes:"", hidrico:"" },
-      terroir: { frutas:[], vegetais:[], proteinas:[], tecnicas:[], pratos:[] },
-      cultura: { musica:"", manifestacoes:"" },
-      imaginario: { encantados:[], notes:"" }
-    }])
-  ),
-  tasks: [],
-  decisions: []
-};
+      <div class="grid2">
+        <div>
+          <h3>Cultura</h3>
+          <label>Música / ritmos</label><input id="c_musica" />
+          <label>Manifestações culturais</label><input id="c_manifestacoes" />
+        </div>
 
-// ================= LOGIN =================
+        <div>
+          <h3>Imaginário</h3>
+          <label>Encantados citados (vírgula)</label><input id="encantados" />
+          <label>Notas do bioma</label><textarea id="notes"></textarea>
+        </div>
+      </div>
+    </section>
 
-document.getElementById("btnLogin").addEventListener("click", async () => {
-  await auth.signInWithPopup(provider);
-});
+    <section class="card">
+      <h2>2) Kanban (tarefas do grupo)</h2>
 
-document.getElementById("btnLogout").addEventListener("click", async () => {
-  await auth.signOut();
-});
+      <div class="grid2">
+        <div>
+          <label>Tarefa</label>
+          <input id="task_title" placeholder="Ex: Pesquisar frutas do Cerrado" />
+        </div>
+        <div>
+          <label>Responsável</label>
+          <input id="task_owner" placeholder="Ex: Membro 3" />
+        </div>
+      </div>
 
-auth.onAuthStateChanged(async user => {
-  currentUser = user;
+      <div class="row">
+        <button id="addTask">Adicionar tarefa</button>
+        <span class="hint">Arraste cards entre colunas</span>
+      </div>
 
-  if (user) {
-    document.getElementById("userInfo").innerText =
-      "Logado como: " + user.email;
-    document.getElementById("status").innerText = "Status: online";
+      <div class="kanban">
+        <div class="col" data-col="todo">
+          <h3>A Fazer</h3><div class="drop">solte aqui</div><div class="list" id="todo"></div>
+        </div>
+        <div class="col" data-col="doing">
+          <h3>Fazendo</h3><div class="drop">solte aqui</div><div class="list" id="doing"></div>
+        </div>
+        <div class="col" data-col="review">
+          <h3>Revisão</h3><div class="drop">solte aqui</div><div class="list" id="review"></div>
+        </div>
+        <div class="col" data-col="done">
+          <h3>Pronto</h3><div class="drop">solte aqui</div><div class="list" id="done"></div>
+        </div>
+      </div>
+    </section>
 
-    await loadFromCloud();
-    initUI();
-  } else {
-    document.getElementById("userInfo").innerText =
-      "Faça login para editar.";
-    document.getElementById("status").innerText = "Status: offline";
-  }
-});
+    <section class="card">
+      <h2>3) Decisões (o que “tá valendo”)</h2>
 
-// ================= BANCO =================
+      <div class="grid2">
+        <div>
+          <label>Título</label>
+          <input id="dec_title" placeholder="Ex: Encantados finais por bioma" />
+        </div>
+        <div>
+          <label>Detalhes</label>
+          <input id="dec_detail" placeholder="O que foi decidido e por quê" />
+        </div>
+      </div>
 
-async function loadFromCloud() {
-  const snap = await db.doc(DOC_PATH).get();
+      <div class="row">
+        <button id="addDecision">Registrar decisão</button>
+      </div>
 
-  if (!snap.exists) {
-    data = structuredClone(defaultData);
-    await saveToCloud();
-  } else {
-    data = snap.data();
-  }
-}
+      <div id="decList"></div>
+    </section>
+  </div>
 
-async function saveToCloud() {
-  if (!currentUser) return;
-
-  data._updatedAt = new Date().toISOString();
-  data._updatedBy = currentUser.email;
-
-  await db.doc(DOC_PATH).set(data, { merge: true });
-}
-
-// ================= UI =================
-
-function initUI() {
-  const biomeSelect = document.getElementById("biomeSelect");
-  biomeSelect.innerHTML = "";
-
-  BIOMES.forEach(b => {
-    biomeSelect.appendChild(new Option(b, b));
-  });
-
-  biomeSelect.addEventListener("change", () => {
-    fillBiome(biomeSelect.value);
-  });
-
-  fillBiome(BIOMES[0]);
-
-  document.getElementById("saveBiome").addEventListener("click", async () => {
-    const b = biomeSelect.value;
-    const obj = data.biomes[b];
-
-    obj.territorio.area = val("t_area");
-    obj.territorio.estados = val("t_estados");
-    obj.territorio.clima = val("t_clima");
-    obj.territorio.estacoes = val("t_estacoes");
-    obj.territorio.hidrico = val("t_hidrico");
-
-    obj.terroir.frutas = csv(val("g_frutas"));
-    obj.terroir.vegetais = csv(val("g_vegetais"));
-    obj.terroir.proteinas = csv(val("g_proteinas"));
-    obj.terroir.tecnicas = csv(val("g_tecnicas"));
-    obj.terroir.pratos = csv(val("g_pratos"));
-
-    obj.cultura.musica = val("c_musica");
-    obj.cultura.manifestacoes = val("c_manifestacoes");
-
-    obj.imaginario.encantados = csv(val("encantados"));
-    obj.imaginario.notes = val("notes");
-
-    await saveToCloud();
-    alert("Salvo online ✅");
-  });
-
-  renderKanban();
-  renderDecisions();
-}
-
-// ================= BIOMA =================
-
-function fillBiome(b) {
-  const obj = data.biomes[b];
-
-  set("t_area", obj.territorio.area);
-  set("t_estados", obj.territorio.estados);
-  set("t_clima", obj.territorio.clima);
-  set("t_estacoes", obj.territorio.estacoes);
-  set("t_hidrico", obj.territorio.hidrico);
-
-  set("g_frutas", obj.terroir.frutas.join(", "));
-  set("g_vegetais", obj.terroir.vegetais.join(", "));
-  set("g_proteinas", obj.terroir.proteinas.join(", "));
-  set("g_tecnicas", obj.terroir.tecnicas.join(", "));
-  set("g_pratos", obj.terroir.pratos.join(", "));
-
-  set("c_musica", obj.cultura.musica);
-  set("c_manifestacoes", obj.cultura.manifestacoes);
-
-  set("encantados", obj.imaginario.encantados.join(", "));
-  set("notes", obj.imaginario.notes);
-}
-
-// ================= KANBAN =================
-
-document.getElementById("addTask").addEventListener("click", async () => {
-  data.tasks.push({
-    id: Date.now(),
-    title: val("task_title"),
-    owner: val("task_owner"),
-    col: "todo"
-  });
-
-  await saveToCloud();
-  renderKanban();
-});
-
-function renderKanban() {
-  ["todo","doing","review","done"].forEach(c => {
-    const list = document.getElementById(c);
-    list.innerHTML = "";
-
-    data.tasks
-      .filter(t => t.col === c)
-      .forEach(t => {
-        const div = document.createElement("div");
-        div.className = "task";
-        div.innerHTML = "<b>" + t.title + "</b><div class='meta'>👤 " + t.owner + "</div>";
-        list.appendChild(div);
-      });
-  });
-}
-
-// ================= DECISÕES =================
-
-document.getElementById("addDecision").addEventListener("click", async () => {
-  data.decisions.unshift({
-    id: Date.now(),
-    title: val("dec_title"),
-    detail: val("dec_detail"),
-    date: new Date().toLocaleDateString()
-  });
-
-  await saveToCloud();
-  renderDecisions();
-});
-
-function renderDecisions() {
-  const wrap = document.getElementById("decList");
-  wrap.innerHTML = "";
-
-  data.decisions.forEach(d => {
-    const div = document.createElement("div");
-    div.className = "dec";
-    div.innerHTML =
-      "<div class='decTitle'>" + d.title + "</div>" +
-      "<div class='decDetail'>" + d.detail + "</div>";
-    wrap.appendChild(div);
-  });
-}
-
-// ================= HELPERS =================
-
-function val(id){ return document.getElementById(id).value.trim(); }
-function set(id,v){ document.getElementById(id).value = v || ""; }
-function csv(s){ return s.split(",").map(x=>x.trim()).filter(Boolean); }
+ 
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
